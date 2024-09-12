@@ -18,11 +18,11 @@ import threading
 
 # Plot Map ?? : https://pypi.org/project/Cartopy/
 
-minLongitude = 66 # x1
-maxLongitude = 100 # x2
+minLongitude = 68 # x1
+maxLongitude = 88 # x2
 
 minLatitude = 24 # y1
-maxLatitude = 4 # y2
+maxLatitude = 5  # y2
 
 
 # 1) Get Session ID
@@ -34,10 +34,14 @@ maxLatitude = 4 # y2
 
 
 #  Creates a JxJ Node Matrix
-total_xy_axis_values = 5
+total_xy_axis_values = 30
 
-x_offset = (100 - 66) / total_xy_axis_values  # Each X_Node
-y_offset = (24 - 4) / total_xy_axis_values    # Each Y_Node
+# x_offset = (maxLongitude - minLongitude) / total_xy_axis_values  # Each X_Node
+# y_offset = (minLatitude - maxLatitude) / total_xy_axis_values    # Each Y_Node
+
+x_offset = 0.5  # Each X_Node
+y_offset = 0.5    # Each Y_Node
+
 
 fp_all_waves_data = "./wavesData/all_waves_data.csv"
 fp_day1_waves_data = "./wavesData/day1_waves_data.csv"
@@ -140,7 +144,7 @@ def download_waves_node(JSESSIONID:str, x:str, y:str) -> list[str]:
         print(f"Error: {e}")
     global global_current_node_count
     print(f"NodeNum : {global_current_node_count}  |  Node : <{x}, {y}> Completed")
-    return [JSESSIONID, response.text]
+    return response.text
 
 
 global global_csv_content
@@ -164,13 +168,6 @@ def increament_and_store_global_node_count(content):
 
         global_current_node_count += 1
 
-def create_new_request_to_account(executor, jsessionid, node_list):
-    new_future = executor.submit(download_waves_node, jsessionid, node_list[global_current_node_count][0], node_list[global_current_node_count][1])
-    jsessionid, csv_content = new_future.result()
-    increament_and_store_global_node_count(content= csv_content)
-    if global_current_node_count < len(node_list):
-        create_new_request_to_account(executor= executor, jsessionid= jsessionid, node_list= node_list)
-
 
 def manage_accounts(futures, node_list, executor):
     global global_current_node_count
@@ -181,11 +178,8 @@ def manage_accounts(futures, node_list, executor):
     global_csv_lock = threading.Lock()
     
     for future in as_completed(futures):
-        jsessionid, csv_content = future.result()
+        csv_content = future.result()
         increament_and_store_global_node_count(content= csv_content)
-        
-        if global_current_node_count < len(node_list):
-            create_new_request_to_account(executor= executor, jsessionid= jsessionid, node_list= node_list)
             
         
 
@@ -211,15 +205,23 @@ def multi_process_fetch(JSESSIONLIST: list[str], node_list: list[str]) -> str:
     global_if_header_saved = False
     global_current_node_count = 0
     tic()
+    each_accounts_nodes = {} # [[0, 10, 20, ...], [1, 11, 21, ...] ... [9, 19, 29, ...]]
+    total_accounts = len(JSESSIONLIST)
+    for idx, node in enumerate(node_list):
+        account_count = idx % total_accounts
+        if each_accounts_nodes.get(account_count) == None:
+            each_accounts_nodes[account_count] = []
+        each_accounts_nodes[account_count].append(node)    
+
     with ThreadPoolExecutor(max_workers=len(JSESSIONLIST)) as executor:
         futures = set()
-        for session in JSESSIONLIST:
-            if global_current_node_count < len(node_list):
-                futures.add(executor.submit(download_waves_node, session, node_list[global_current_node_count][0], node_list[global_current_node_count][1]))
-                global_current_node_count += 1
-        
+        for idx, accounts_nodes in each_accounts_nodes.items():
+            for node in accounts_nodes:
+                futures.add(executor.submit(download_waves_node, JSESSIONLIST[idx], node[0], node[1]))
+
         manage_accounts(futures, node_list, executor)
-    
+        
+        
     executor.shutdown(wait= True)
     toc()
     return global_csv_content
@@ -257,7 +259,10 @@ def download_waves_data(JSESSIONIDLIST: list[str]):
     print(f"Length Nodes : {len(node_list)}")
        
     # Start Request for all Accounts -> 10
-    csv_content = multi_process_fetch(JSESSIONLIST= JSESSIONIDLIST, node_list = node_list)
+    try:
+        csv_content = multi_process_fetch(JSESSIONLIST= JSESSIONIDLIST, node_list = node_list)
+    except Exception as e:
+        print("Error in Fetching CSV Data:\n", e)
     
     try:
         # print(f"DATA: \n{csv_content}")

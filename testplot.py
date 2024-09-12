@@ -7,8 +7,11 @@ import numpy as np
 # swells[np.random.choice(num_points, 20, replace=False)] = -99  # Set some random points to -99
 
 # Calculate offsets for longitudes and latitudes
-x_offset = (100 - 66) / 10  # Each X_Node (width of each rectangle)
-y_offset = (24 - 4) / 10    # Each Y_Node (height of each rectangle)
+# x_offset = (100 - 66) / 30  # Each X_Node (width of each rectangle)
+# y_offset = (24 - 4) / 30    # Each Y_Node (height of each rectangle)
+
+x_offset = 0.5 # Each X_Node (width of each rectangle)
+y_offset = 0.5 # Each Y_Node (height of each rectangle)
 
 minLongitude = 66  # x1
 maxLongitude = 100  # x2
@@ -77,7 +80,7 @@ def plot_swell_data_rectangles(longitudes, latitudes, swells, x_offset, y_offset
 
 swells = []
 content = ""
-with open("./wavesData/day1_waves_data.csv", "r") as file:
+with open("./wavesData/day3_waves_data.csv", "r") as file:
     content = file.read()
 
 count= 0
